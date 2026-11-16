@@ -3,33 +3,38 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#090f13">
-  <title>Token Radar · Signal console</title>
+  <meta name="theme-color" content="#101414">
+  <title>Token Radar / Research console</title>
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
-  <a class="skip" href="#board">Skip to protocol board</a>
+  <a class="skip" href="#board">Skip to rankings</a>
   <div class="shell">
-    <header class="masthead"><a class="brand" href="#board"><span aria-hidden="true">◎</span> TOKEN RADAR <small>/ 01</small></a><div class="snapshot"><i class="dot"></i> SNAPSHOT LOCKED <time id="date"></time></div></header>
+    <header class="masthead">
+      <a class="brand" href="#board"><span aria-hidden="true">◎</span> TOKEN RADAR <small>/ 01</small></a>
+      <p class="snapshot"><i class="dot" aria-hidden="true"></i> SNAPSHOT LOCKED <time id="date"></time></p>
+    </header>
     <main>
       <section class="hero" aria-labelledby="title">
-        <div><p class="eyebrow">RESEARCH TERMINAL / PRE-TOKEN INTELLIGENCE</p><h1 id="title">Find the signal.<br><span>Before the token.</span></h1><p class="intro">A snapshot of protocols without a token, ranked by modeled implied value. Follow the inputs. Inspect the plan.</p><div class="tags"><span>● LOCAL SNAPSHOT</span><span id="version"></span><span>NO LIVE FEED</span></div></div>
+        <div><p class="eyebrow">PRE-TOKEN INTELLIGENCE / RESEARCH TERMINAL</p><h1 id="title">Find the signal.<br><span>Before the token.</span></h1><p class="intro">Explore protocols without a token, ranked by modeled implied value. Trace the inputs. Inspect the opportunity. Build a plan.</p><div class="tags"><span>● LOCAL SNAPSHOT</span><span id="version"></span><span>NO LIVE FEED</span></div></div>
         <div class="radar" aria-hidden="true"><div class="sweep"></div><i class="blip one"></i><i class="blip two"></i><i class="blip three"></i><span>N / 000</span><small>SCANNING THE PRE-TOKEN UNIVERSE</small></div>
       </section>
-      <section class="metrics" id="metrics" aria-label="Snapshot overview"></section>
-      <section class="board" id="board" tabindex="-1" aria-labelledby="board-title">
-        <div class="heading"><div><p class="eyebrow">01 / SIGNAL BOARD</p><h2 id="board-title">Protocols on radar</h2></div><span class="hint">Select a protocol to inspect ↗</span></div>
-        <div class="search-row"><label class="search-box" for="search"><span aria-hidden="true">⌕</span><span class="sr-only">Search protocol, category or chain</span><input id="search" type="search" placeholder="Search protocol, category or chain…" autocomplete="off"></label><button class="reset" id="reset" type="button">Reset filters ↺</button></div>
-        <div class="chips" id="categories" role="group" aria-label="Filter by category"></div>
-        <div class="results-bar"><p id="results" role="status" aria-live="polite"></p><span id="sort-status"></span></div>
-        <div class="table-wrap" role="region" aria-label="Protocol rankings" tabindex="0"><table>
-          <caption class="sr-only">Ranked protocols. Sort using column buttons, then select a protocol for its model and complete farm plan.</caption>
-          <thead><tr><th scope="col">Rank</th><th scope="col"><button type="button" data-sort="name">Protocol <span></span></button></th><th scope="col"><button type="button" data-sort="implied_value_usd">Implied value <span></span></button></th><th scope="col"><button type="button" data-sort="tvl_usd">TVL <span></span></button></th><th scope="col"><button type="button" data-sort="growth_pct">7d change <span></span></button></th><th scope="col"><button type="button" data-sort="age_months">Age <span></span></button></th><th scope="col"><button type="button" data-sort="category">Category <span></span></button></th><th scope="col"><span class="sr-only">Details</span></th></tr></thead><tbody id="rows"></tbody>
-        </table></div>
-        <div class="empty" id="empty" hidden><span aria-hidden="true">◎</span><h3>No signals in this sector</h3><p>Try another search or reset the filters to see the full board.</p><button class="reset" id="empty-reset" type="button">Show all protocols</button></div>
-        <div class="board-foot"><span><i class="dot"></i> Ranks stay tied to the full snapshot</span><span>USD · 7D TVL GROWTH · AGE IN MONTHS</span></div>
+      <section id="metrics" class="metrics" aria-label="Snapshot overview"></section>
+      <section id="board" class="board" tabindex="-1" aria-labelledby="board-title">
+        <div class="heading"><div><p class="eyebrow">01 / SIGNAL BOARD</p><h2 id="board-title">Protocols on radar</h2></div><span class="hint">Select a row to open its dossier ↗</span></div>
+        <div class="search-row"><label class="search-box"><span aria-hidden="true">⌕</span><span class="sr-only">Filter by protocol, category or chain</span><input id="search" type="search" placeholder="Search protocol, category or chain…" autocomplete="off" aria-controls="rows"></label><button id="reset" class="reset" type="button" disabled>Clear filters ↺</button></div>
+        <div id="categories" class="chips" role="group" aria-label="Filter by category"></div>
+        <div id="result-bar" class="results-bar"><p id="results" role="status" aria-live="polite">Loading local snapshot…</p><span id="sort-status"></span></div>
+        <div class="table-wrap" role="region" aria-label="Protocol rankings" tabindex="0">
+          <table><caption class="sr-only">Sort with column buttons. Open a protocol to see value components and the full farm plan. Ranks refer to the full snapshot.</caption>
+            <thead><tr><th scope="col">Rank</th><th scope="col"><button type="button" data-sort="name">Protocol <span aria-hidden="true">↕</span></button></th><th scope="col"><button type="button" data-sort="implied_value_usd">Implied value <span aria-hidden="true">↕</span></button></th><th scope="col"><button type="button" data-sort="tvl_usd">TVL <span aria-hidden="true">↕</span></button></th><th scope="col"><button type="button" data-sort="growth_pct">7d change <span aria-hidden="true">↕</span></button></th><th scope="col"><button type="button" data-sort="age_months">Age <span aria-hidden="true">↕</span></button></th><th scope="col"><button type="button" data-sort="category">Category <span aria-hidden="true">↕</span></button></th><th scope="col"><span class="sr-only">Open dossier</span></th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div id="empty" class="empty" hidden><span aria-hidden="true">◎</span><h3>No signals found</h3><p>Try another search or clear the filters to restore the full board.</p><button id="empty-reset" class="reset" type="button">Show all protocols</button></div>
+        <div class="board-foot"><span><i class="dot" aria-hidden="true"></i> Original snapshot ranks preserved</span><span>USD / 7D TVL CHANGE / AGE IN MONTHS</span></div>
       </section>
-      <section class="model-note"><p class="eyebrow">02 / READING THE SIGNAL</p><h2>A model you can inspect.</h2><p>Implied value combines TVL, a category and chain breadth weight, clipped seven-day growth, and maturity. Every protocol uses the same model. Open any row for exact inputs and its complete farm plan.</p><code>implied value = round(TVL × weight × growth multiplier × maturity multiplier)</code><p>A modeled estimate, not an observed token price. Age measures time since listing. Unknown age uses the model’s fallback.</p></section>
+      <section class="model-note"><p class="eyebrow">02 / READING THE SIGNAL</p><h2>A model you can inspect.</h2><p>Every protocol follows the same formula: TVL, category and chain breadth, clipped seven-day growth, and maturity. Select a row to see its inputs, multipliers, and complete farm plan.</p><code>implied value = round(TVL × weight × growth multiplier × maturity multiplier)</code><p>Implied value is a model estimate. Age measures time since listing; missing ages use the model fallback. Farm plans describe snapshot-based research actions and do not establish reward eligibility.</p></section>
     </main>
     <footer><span>TOKEN RADAR / RESEARCH CONSOLE</span><span>DATA: DEFILLAMA SNAPSHOT</span></footer>
   </div>
