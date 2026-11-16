@@ -34,6 +34,9 @@
   $('date').textContent = data.as_of || 'Undated';
   if (data.as_of) $('date').dateTime = data.as_of;
   $('version').textContent = (data.model_version || 'Snapshot') + ' MODEL';
+  const methodology = node('p', 'detail-note', 'Methodology: TVL × base multiple × category × chain breadth × clipped weekly growth factor × capped listing maturity, rounded to dollars (minimum $1).');
+  methodology.style.padding = '0 24px 16px';
+  $('board').append(methodology);
   const stats = [
     ['Protocols tracked', String(rows.length).padStart(3, '0'), 'Ranked by implied value'],
     ['Watchlist covered', data.watchlist_size + ' / ' + data.watchlist_size, compact(data.floor_usd) + ' TVL floor'],
@@ -153,7 +156,8 @@
     top.append(node('p', 'eyebrow', 'SIGNAL DOSSIER / RANK ' + row.rank), close);
     const title = node('h2', '', row.name);
     title.id = 'detail-title';
-    head.append(top, title, node('p', 'detail-sub', sector(row) + ' · ' + ((row.chains || []).join(' / ') || 'Chain unspecified')));
+    head.append(top, title, node('p', 'detail-sub', sector(row) + ' · ' + ((row.chains || []).join(' / ') || 'Chain unspecified')),
+      node('p', 'detail-sub', row.value_note));
     const model = node('section', 'detail-section');
     model.append(node('p', 'eyebrow', '01 / VALUE COMPONENTS'), node('h3', '', 'Trace the estimate'));
     const components = node('dl', 'components');

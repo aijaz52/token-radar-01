@@ -9,9 +9,9 @@
 // Implied value follows only from the snapshot's own figures:
 //
 //   base       = tvl_usd x BASE_MULTIPLE
-//   growth     = clamp(change_7d, -60, 120) per cent
+//   growth     = clamp(change_7d, -50, 50) per cent (unknown: 0)
 //   growthMult = 1 + (growth / 100) x GROWTH_WEIGHT
-//   maturity   = 0.6 + min(age_days, 1095) / 1095 x 0.4   (age_days unknown: 365)
+//   maturity   = 0.75 + min(age_days, 1095) / 1095 x 0.25   (age_days unknown: 0)
 //   category   = CATEGORY_WEIGHTS[category] (unknown category: 1)
 //   chains     = distinct chain count
 //   breadth    = 1 + 0.04 x min(5, max(0, chains - 1))
@@ -62,36 +62,69 @@ export interface ModelConstants {
 }
 
 export const MODEL: ModelConstants = {
+  // A common 25% TVL anchor keeps capital scale dominant; it is a scoring convention, not fair value.
   base_multiple: 0.25,
-  growth_weight: 0.5,
-  growth_floor: -60,
-  growth_cap: 120,
-  maturity_floor: 0.6,
-  maturity_range: 0.4,
+  // TVL change includes asset prices and transient deposits, not just adoption: a week moves value
+  // at most +/-20%. Symmetric clipping at +/-50% prevents tiny-base spikes dominating the ranking.
+  growth_weight: 0.4,
+  growth_floor: -50,
+  growth_cap: 50,
+  // Listing tenure is weak evidence of persistence, not launch age or airdrop likelihood. Limit its
+  // discount to 25%, saturate after three years, and grant no unobserved tenure for missing dates.
+  maturity_floor: 0.75,
+  maturity_range: 0.25,
   maturity_days: 1095,
-  unknown_age_days: 365,
+  unknown_age_days: 0,
 };
 
 /** The model's version label: the dashboard names it and the rules quote it. */
-export const MODEL_VERSION = 'radar-2';
+export const MODEL_VERSION = 'radar-3';
 
 /** How many pre-token protocols below the watchlist floor the early radar carries, by implied value. */
 export const EARLY_ROWS = 100;
 
 export const CATEGORY_WEIGHTS: Readonly<Record<string, number>> = {
-  Lending: 1.2, 'Uncollateralized Lending': 0.8, CDP: 1.1, 'CDP Manager': 1.05,
-  Dexs: 1.15, Derivatives: 1.25, 'Interest Rate Derivatives': 1.15,
-  'Prediction Market': 1.2, 'Risk Curators': 0.9, 'Onchain Capital Allocator': 1.05,
-  Yield: 0.95, 'Yield Aggregator': 0.95, 'Basis Trading': 0.9, 'Options Vault': 0.9,
-  'Leveraged Farming': 0.85, Farm: 0.8, 'Liquidity Manager': 1,
-  'Liquid Staking': 1.05, 'Liquid Restaking': 1.1, Restaking: 1.1,
-  'Staking Pool': 0.85, 'Collateral Markets': 1.05, 'Restaked BTC': 1.05,
-  RWA: 0.8, CeDeFi: 0.75, Insurance: 0.85, Chain: 1.1,
-  Bridge: 0.8, 'Canonical Bridge': 0.7, 'Cross Chain Bridge': 0.8,
-  Payments: 0.75, 'Crypto Card Issuer': 0.75, 'Stablecoin Wrapper': 0.85,
-  'Dual-Token Stablecoin': 0.85, 'Governance Incentives': 0.8,
-  'Anchor BTC': 0.8, 'Decentralized BTC': 0.9, Indexes: 0.95,
-  'OTC Marketplace': 0.9, Privacy: 1,
+  // Small, explicit priors for how directly TVL supports activity; no fees or volumes are observed.
+  Lending: 1.1, // Supplied capital enables recurring borrowing; utilization is unknown, so only +10%.
+  'Uncollateralized Lending': 0.8, // Credit/default exposure weakens the collateral signal.
+  CDP: 1.05, // Collateral supports recurring debt demand, but locked backing is not revenue.
+  'CDP Manager': 0.95, // Managed collateral may already be counted at the underlying CDP.
+  Dexs: 1.05, // Liquidity enables fee-bearing trades, but absent volume limits the premium to +5%.
+  Derivatives: 1.05, // Margin supports trading; leverage and missing volume argue against a large premium.
+  'Interest Rate Derivatives': 1, // Rate exposure is useful, but collateral alone says little about turnover.
+  'Prediction Market': 1, // Locked stakes do not reveal trading volume or fee capture.
+  'Risk Curators': 0.9, // Allocated assets can overlap lending TVL; curator fees are unobserved.
+  'Onchain Capital Allocator': 0.95, // Allocation may reuse capital already counted downstream.
+  Yield: 0.9, // Deposits often reuse other protocols and may depend on temporary incentives.
+  'Yield Aggregator': 0.9, // Aggregated deposits are not independent capital or known fee income.
+  'Basis Trading': 0.85, // Hedged yield depends on funding and execution beyond the TVL snapshot.
+  'Options Vault': 0.85, // Option exposure and strategy losses are invisible in headline deposits.
+  'Leveraged Farming': 0.8, // Borrowed/recycled collateral can inflate the capital signal.
+  Farm: 0.8, // Incentive-seeking deposits can leave when emissions decline.
+  'Liquidity Manager': 0.9, // Managed LP capital overlaps DEX liquidity; management fee capture is unknown.
+  'Liquid Staking': 0.95, // Receipts represent underlying stake; TVL overstates distinct economic activity.
+  'Liquid Restaking': 0.85, // Receipt layers can count the same security capital more than once.
+  Restaking: 0.9, // Reused stake adds slashing exposure without observed service revenue.
+  'Staking Pool': 0.9, // Delegated capital earns validator yield, only part of which may accrue to the pool.
+  'Collateral Markets': 0.95, // Pledged capital supports activity but can overlap upstream assets.
+  'Restaked BTC': 0.85, // Wrapped and restaked backing introduces layered claims on the same BTC.
+  RWA: 0.8, // Custody, redemption and legal claims are not measured by onchain balances.
+  CeDeFi: 0.75, // Offchain deployment makes TVL a less transparent activity proxy.
+  Insurance: 0.9, // Reserve capital supports cover but does not establish premiums or claims quality.
+  Chain: 1, // Chain TVL aggregates applications; absent fee data gives no basis for a premium.
+  Bridge: 0.8, // Escrowed backing is not transfer volume and carries bridge exposure.
+  'Canonical Bridge': 0.75, // Native escrow backs assets elsewhere and need not capture standalone fees.
+  'Cross Chain Bridge': 0.8, // Bridge balances reveal neither throughput nor security of the routes.
+  Payments: 0.85, // Balances are a weaker usage signal than payment flow, which is absent.
+  'Crypto Card Issuer': 0.8, // Prefunded balances omit spending volume and issuer/custody dependencies.
+  'Stablecoin Wrapper': 0.85, // Wrapped backing can duplicate existing stablecoin capital.
+  'Dual-Token Stablecoin': 0.85, // Backing alone does not resolve redemption/reflexivity risk.
+  'Governance Incentives': 0.8, // Locked incentives may be circular and do not measure organic demand.
+  'Anchor BTC': 0.8, // Anchored backing involves external custody or settlement assumptions.
+  'Decentralized BTC': 0.9, // BTC backing is useful capital but not evidence of fee-generating use.
+  Indexes: 0.95, // Basket holdings may overlap constituent TVL; recurring fees are unknown.
+  'OTC Marketplace': 0.9, // Escrow balances do not reveal completed trade flow.
+  Privacy: 1, // No snapshot evidence supports a category-specific premium or discount.
 };
 
 /** How many live-token protocols the Live token view carries, by market cap. */
@@ -126,6 +159,7 @@ export interface BoardRow {
   chain_count: number;
   chain_multiplier: number;
   implied_value_usd: number;
+  value_note: string;
   model: {
     base_multiple: number;
     growth_pct: number;
@@ -152,6 +186,7 @@ export interface RadarRow {
   listed_at: string | null;
   age_days: number | null;
   implied_value_usd: number;
+  value_note: string;
   growth_multiplier: number;
   maturity_multiplier: number;
   age_months: number | null;
@@ -221,6 +256,7 @@ export function impliedValue(protocol: SnapshotProtocol, asOf: string, model: Mo
   const growthMult = 1 + (growthPct / 100) * model.growth_weight;
   const ageForModel = age ?? model.unknown_age_days;
   const maturityMult = model.maturity_floor + (Math.min(Math.max(ageForModel, 0), model.maturity_days) / model.maturity_days) * model.maturity_range;
+  // Unknown sectors stay neutral rather than inheriting an unsupported category prior.
   const categoryWeight = CATEGORY_WEIGHTS[protocol.category ?? ''] ?? 1;
   const chainCount = new Set(protocol.chains).size;
   const chainMult = 1 + 0.04 * Math.min(5, Math.max(0, chainCount - 1));
@@ -228,6 +264,16 @@ export function impliedValue(protocol: SnapshotProtocol, asOf: string, model: Mo
   const base = Math.max(0, protocol.tvl_usd) * weight;
   const implied = Math.max(1, Math.round(base * growthMult * maturityMult));
   return { implied, growthPct, growthMult, maturityMult, age, categoryWeight, chainCount, chainMult, weight };
+}
+
+/** One sentence tracing the score's components, with no protocol identity or reward assumptions. */
+function valueNote(p: SnapshotProtocol, s: ReturnType<typeof impliedValue>): string {
+  const tvl = Math.max(0, p.tvl_usd).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const growth = p.change_7d === null ? 'unknown weekly growth is neutral' :
+    `${s.growthPct >= 0 ? '+' : ''}${s.growthPct}% modeled weekly growth${p.change_7d !== s.growthPct ? ' after clipping' : ''} ${s.growthMult > 1 ? 'lifts' : s.growthMult < 1 ? 'reduces' : 'leaves unchanged'} the estimate`;
+  const age = s.age === null ? 'unknown listing age receives the minimum maturity factor' :
+    `${s.age} days since listing gives ${s.maturityMult.toFixed(2)}× maturity`;
+  return `$${tvl} TVL anchors the score; ${growth}, ${age}, and category/breadth apply ${s.categoryWeight}×/${s.chainMult.toFixed(2)}×.`;
 }
 
 /** DefiLlama's version-marker rule: a name ending in a release is a pool of another protocol. */
@@ -299,6 +345,7 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     chain_count: s.chainCount,
     chain_multiplier: s.chainMult,
     implied_value_usd: s.implied,
+    value_note: valueNote(s.p, s),
     model: {
       base_multiple: model.base_multiple,
       growth_pct: s.growthPct,
@@ -471,6 +518,7 @@ export function radarRow(row: BoardRow): RadarRow {
     listed_at: row.listed_at,
     age_days: row.age_days,
     implied_value_usd: row.implied_value_usd,
+    value_note: row.value_note,
     growth_multiplier: row.model.growth_multiplier,
     maturity_multiplier: row.model.maturity_multiplier,
     age_months: row.age_months,
