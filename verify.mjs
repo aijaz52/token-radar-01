@@ -78,5 +78,5 @@ for(const name of shots){
 }
 const dossier = readFileSync(join(out,'dossier.json'),'utf8');
 assert.ok(Buffer.byteLength(dossier)<=1.5*1024*1024);
-assert.equal(dossier,buildDossier(out,{text_max_bytes:65536,screenshots:{max:4,max_bytes:524288},dashboard:{max_files:400,max_bytes:65536}}));
+assert.ok(readFileSync(join(out,'dossier.json')).equals(Buffer.from(buildDossier(out,{text_max_bytes:65536,screenshots:{max:4,max_bytes:524288},dashboard:{max_files:400,max_bytes:65536}}))), 'Dossier bytes must match the canonical rebuild');
 console.log(JSON.stringify({passed:true,rows:board.length,watchlist:snapshot.watchlist.length,coefficients:m.coefficients,r_squared:m.r_squared,median_oos_error_pct:m.oos_median_relative_error_pct,oos_trimmed_mape_pct:m.oos_trimmed_mape_pct,haircut:m.haircut,top_3:board.slice(0,3).map(p=>({rank:p.rank,slug:p.slug,name:p.name,tvl_usd:p.tvl_usd,change_7d:p.change_7d,age_days:p.age_days,implied_value_usd:p.implied_value_usd})),dashboard_bytes:dashboardBytes,dossier_bytes:Buffer.byteLength(dossier),screenshots:imageInfo},null,2));

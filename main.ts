@@ -3,7 +3,7 @@
 // The ranked board and dashboard data share the same model and farm plans.
 // Run capture.mjs after changing the snapshot/dashboard to regenerate the real browser renders.
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boardIssue, buildRadar, dataScript, parseSnapshot } from './lib/model.ts';
@@ -19,18 +19,22 @@ const IMAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$/;
 /** --name <value> out of the arguments, or the fallback. */
 function arg(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
-  if (at >= 0 && at + 1 < process.argv.length) return process.argv[at + 1]!;
   const withEquals = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return withEquals === undefined ? fallback : withEquals.slice(name.length + 3);
+  const value = at >= 0 ? process.argv[at + 1] : withEquals === undefined ? fallback : withEquals.slice(name.length + 3);
+  if (!value || !value.trim() || value.startsWith('--')) {
+    process.stderr.write(`token radar: --${name} requires a non-empty path\n`);
+    process.exit(2);
+  }
+  return value;
 }
 
 const inputArg = arg('input', existsSync('/input/snapshot.json') ? '/input' : join(here, 'snapshot.json'));
-const inputFile = inputArg.endsWith('.json') ? inputArg : join(inputArg, 'snapshot.json');
+const inputFile = inputArg.toLowerCase().endsWith('.json') ? inputArg : join(inputArg, 'snapshot.json');
 if (!existsSync(inputFile)) {
   process.stderr.write(`token radar: no snapshot at ${inputFile}: pass --input <snapshot.json|directory> or mount the sealed /input\n`);
   process.exit(2);
 }
-const out = arg('output', process.env.MAKEFUN_OUTPUT_DIR ?? '/output');
+const out = arg('output', process.env.MAKEFUN_OUTPUT_DIR || '/output');
 
 const snapshot = parseSnapshot(readFileSync(inputFile, 'utf8'));
 const { board, radar } = buildRadar(snapshot);
@@ -41,6 +45,13 @@ if (issue !== null) {
 }
 
 mkdirSync(out, { recursive: true });
+if (realpathSync(out) === realpathSync(here)) {
+  process.stderr.write('token radar: choose an output directory other than the repository root\n');
+  process.exit(2);
+}
+// Keep repeated local runs from leaving stale generated dashboard assets behind.
+rmSync(join(out, 'dashboard'), { recursive: true, force: true });
+rmSync(join(out, 'screenshots'), { recursive: true, force: true });
 writeFileSync(join(out, 'board.json'), `${JSON.stringify({ rows: board })}\n`);
 writeFileSync(join(out, 'data.js'), dataScript(radar));
 
@@ -49,10 +60,11 @@ function copyFiles(from: string, to: string): string[] {
   if (!existsSync(from)) return [];
   mkdirSync(to, { recursive: true });
   const copied: string[] = [];
-  for (const name of readdirSync(from)) {
+  for (const entry of readdirSync(from, { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+    const { name } = entry;
     if (name.startsWith('.')) continue;
+    if (!entry.isFile()) continue;
     const path = join(from, name);
-    if (!statSync(path).isFile()) continue;
     copyFileSync(path, join(to, name));
     copied.push(name);
   }
@@ -77,7 +89,12 @@ const dossier = buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots:
 if (Buffer.byteLength(dossier) > 1.5 * 1024 * 1024) throw new Error('Dossier exceeds 1.5 MiB');
 writeFileSync(join(out, 'dossier.json'), dossier);
 
+const model = radar.model;
+const regressionFit = `log-space R2=${model.r_squared.toFixed(6)}, median OOS relative error=${model.oos_median_relative_error_pct.toFixed(2)}%, central-90% OOS trimmed MAPE=${model.oos_trimmed_mape_pct.toFixed(2)}%, haircut=${model.haircut}`;
+const regressionRows = `listed comps=${model.comps_count}, final fit=${model.fit_count}, trimmed from final fit=${model.trimmed_slugs.length}, training split=${model.train_count}, holdout=${model.test_count}, dashboard rows=${radar.rows.length}`;
 process.stdout.write(
   `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside); board gate passed (ranks 1..${board.length}, positive integer values in non-increasing order)\n` +
+    `token radar: regression (${model.feature_set} features) ${regressionFit}\n` +
+    `token radar: regression rows (${regressionRows})\n` +
     `token radar: wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')} (${dashboardFiles.length} files), ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
 );
